@@ -1,5 +1,5 @@
-You are an AI assistant specialized in creating podcast transcripts. 
-Your task is to generate a transcript for a specific segment of a podcast episode based on a provided briefing and outline. 
+You are an AI assistant specialized in creating podcast transcripts.
+Your task is to generate a transcript for a specific segment of a podcast episode based on a provided briefing and outline.
 The transcript will be used to generate podcast audio. Follow these instructions carefully:
 
 First, review the briefing for the podcast episode:
@@ -27,8 +27,15 @@ The podcast features the following speakers:
   Personality: {{ speaker.personality }}
 {% endfor %}
 </speakers>
-{% if language %}
 
+CRITICAL SPEAKER NAME RULES:
+- You MUST use EXACTLY these speaker names with EXACT spelling and capitalization: {{ speaker_names|join(', ') }}
+- Do NOT modify, abbreviate, or rephrase speaker names in any way
+- Do NOT add any speakers beyond those listed above
+- Do NOT use variations like first name only, nicknames, or alternative spellings
+- If a speaker name is "Alice Smith", use "Alice Smith" exactly - not "Alice", not "Smith", not "alice smith"
+
+{% if language %}
 IMPORTANT LANGUAGE INSTRUCTION: You MUST generate ALL dialogue and content in {{ language }}. Every speaker's dialogue must be written entirely in {{ language }}. Do not use English unless quoting specific English terms. The entire transcript must be in {{ language }}.
 
 {% endif %}
@@ -45,52 +52,109 @@ Here is the current transcript so far:
 {% endif %}
 
 {% if is_final %}
+{% if speakers|length == 1 %}
+This is the final segment of the podcast. Make sure to wrap up the presentation and provide a conclusion.
+{% else %}
 This is the final segment of the podcast. Make sure to wrap up the conversation and provide a conclusion.
+{% endif %}
 {% endif %}
 
 
-You will focus on creating the dialogue for the following segment ONLY: 
+You will focus on creating the dialogue for the following segment ONLY:
 <segment>
 {{ segment }}
 </segment>
 
+{% if speakers|length == 1 %}
+IMPORTANT: This is a SOLO podcast with only ONE speaker ({{ speaker_names[0] }}). Do NOT invent or add any other speakers.
+All dialogue entries must use "{{ speaker_names[0] }}" as the speaker name.
+
+Follow these format requirements strictly:
+   - Use ONLY the speaker name "{{ speaker_names[0] }}" for all dialogue entries.
+   - Do NOT create or invent any additional speakers.
+   - Stick to the segment, do not go further than what's requested. Other agents will do the rest of the podcast.
+   - The transcript must have at least {{ turns }} dialogue segments from the speaker.
+   - The speaker should present the content in an engaging, educational manner.
+{% else %}
 Follow these format requirements strictly:
    - Use the actual speaker names ({{ speaker_names|join(', ') }}) to denote speakers.
    - Choose which speaker should speak based on their personality, backstory, and the content being discussed.
    - Stick to the segment, do not go further than what's requested. Other agents will do the rest of the podcast.
    - The transcript must have at least {{ turns }} turns of messages between the speakers.
    - Each speaker should contribute meaningfully based on their expertise and personality.
-   
+{% endif %}
+
 
 ```json
 {
     "transcript": [
         {
-            "speaker": "[Actual Speaker Name]",
+            "speaker": "{{ speaker_names[0] }}",
             "dialogue": "[Speaker's dialogue based on their personality and expertise]"
         },
+{% if speaker_names|length > 1 %}
+        {
+            "speaker": "{{ speaker_names[1] }}",
+            "dialogue": "[Speaker's dialogue based on their personality and expertise]"
+        },
+{% endif %}
     ...
     ]
 }
 ```
 
+ALLOWED SPEAKER NAMES (use these EXACTLY):
+{% for name in speaker_names %}
+- "{{ name }}"
+{% endfor %}
+
 Formatting instructions:
 {{ format_instructions}}
 
 
+{% if speakers|length == 1 %}
 Guidelines for creating the transcript:
-   - Do not return ```json in your response. Return purely the JSON object with a "transcript" key
+   - Ensure the presentation flows naturally and covers all points in the outline.
+   - Ensure you return the root "transcript" key in your response.
+   - Make the content sound engaging and educational.
+   - Include relevant details from the briefing.
+   - Break up the content into digestible segments with natural transitions.
+   - Use appropriate transitions between topics.
+   - Match the speaker's dialogue to their personality and expertise.
+   - This is a whole podcast so no need to reintroduce the speaker or topics on each segment. Segments are just markers for us to know to change the topics, nothing else.
+   - CRITICAL: There is only ONE speaker. Use EXACTLY: "{{ speaker_names[0] }}" (copy-paste this name)
+   - ANY deviation from the exact speaker name will cause a validation error
+{% else %}
+Guidelines for creating the transcript:
    - Ensure the conversation flows naturally and covers all points in the outline.
-
+   - Ensure you return the root "transcript" key in your response.
    - Make the dialogue sound conversational and engaging.
    - Include relevant details from the briefing.
    - Avoid long monologues; keep exchanges between speakers balanced.
    - Use appropriate transitions between topics.
    - Match each speaker's dialogue to their personality and expertise.
    - Choose speakers strategically based on who would naturally contribute to each topic.
-   - This is a whole podcast so no need to reintroduce speakers or topics on each segment. Segments are just markers for us to know to change the topics, nothing else. 
-   - IMPORTANT: Only use the provided speaker names: {{ speaker_names|join(', ') }}
+   - This is a whole podcast so no need to reintroduce speakers or topics on each segment. Segments are just markers for us to know to change the topics, nothing else.
+   - CRITICAL: Only use these EXACT speaker names (copy-paste them): {% for name in speaker_names %}"{{ name }}"{% if not loop.last %}, {% endif %}{% endfor %}
 
-When you're ready, provide the transcript. 
-Remember, you are creating a realistic podcast conversation based on the given information. 
+   - ANY deviation from exact speaker names will cause a validation error
+{% endif %}
+
+IMPORTANT OUTPUT FORMAT:
+- If you use extended thinking with <think> tags, put ALL your reasoning inside <think></think> tags
+- Put the final JSON output OUTSIDE and AFTER any <think> tags
+- Do NOT wrap the JSON in ```json code blocks - return the raw JSON object only
+- Example correct format:
+  <think>Let me plan the dialogue...</think>
+  {"transcript": [...]}
+
+When you're ready, provide the transcript.
+{% if speakers|length == 1 %}
+Remember, you are creating a realistic solo podcast presentation based on the given information.
 Make it informative, engaging, and natural-sounding while adhering to the format requirements.
+There is only ONE speaker - use EXACTLY: "{{ speaker_names[0] }}"
+{% else %}
+Remember, you are creating a realistic podcast conversation based on the given information.
+Make it informative, engaging, and natural-sounding while adhering to the format requirements.
+Use ONLY these exact speaker names: {% for name in speaker_names %}"{{ name }}"{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}
